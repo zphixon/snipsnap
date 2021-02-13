@@ -1,4 +1,3 @@
-use chrono::Utc;
 use rand::Rng;
 use sha2::Digest;
 use tiny_http::{Header, Method, Response, Server};
@@ -28,6 +27,14 @@ struct Auth {
     pub refresh_token: String,
 }
 
+static mut CURRENT_TRACK: String = String::new();
+
+macro_rules! bug_report {
+    () => {
+        "Looks like something went wrong. Please file a bug report at https://github.com/zphixon/snipsnap\n\n{:#?}"
+    }
+}
+
 fn error(msg: &str, e1: MyError, e2: Option<MyError>) {
     msgbox::create(
         "SnipSnap",
@@ -39,6 +46,10 @@ fn error(msg: &str, e1: MyError, e2: Option<MyError>) {
 
 fn main() {
     // TODO: add customization
+    // * port number
+    // * filename
+    // * format
+
     let file = "track.txt";
     let format = "";
 
@@ -88,7 +99,7 @@ fn main() {
             None => {}
         }
 
-        std::thread::sleep(std::time::Duration::from_secs(15));
+        std::thread::sleep(std::time::Duration::from_secs(10));
     }
 }
 
@@ -122,9 +133,14 @@ fn get_currently_playing(access_token: &str, path: &str, _format: &str) -> Optio
     }
 
     let track = format!("{} - {}", json["item"]["name"].as_str().unwrap(), artist);
-    std::fs::write(path, track)
-        .map_err(|_| MyError::FsError)
-        .err()
+
+    if unsafe { &CURRENT_TRACK } == &track {
+        None
+    } else {
+        std::fs::write(path, track)
+            .map_err(|_| MyError::FsError)
+            .err()
+    }
 }
 
 fn refresh(refresh_token: &str) -> Result<Auth, MyError> {
@@ -206,7 +222,7 @@ fn authorize() -> Result<Auth, MyError> {
 
     // send user to the browser
     std::thread::spawn(|| {
-        std::thread::sleep(std::time::Duration::from_millis(500));
+        std::thread::sleep(std::time::Duration::from_millis(250));
         webbrowser::open("http://localhost:44554/snipsnap").unwrap();
     });
 
@@ -254,7 +270,7 @@ fn authorize() -> Result<Auth, MyError> {
                             .unwrap();
                         return Err(MyError::AccessDenied);
                     } else {
-                        let error = format!("Looks like something went wrong. Please file a bug report at https://github.com/zphixon/snipsnap\n\n{:#?}", error);
+                        let error = format!(bug_report!(), error);
                         request.respond(Response::from_string(error)).unwrap();
                         return Err(MyError::Unknown);
                     }
@@ -300,7 +316,7 @@ fn authorize() -> Result<Auth, MyError> {
                             });
                         } else {
                             // something in the request went wrong
-                            let error = format!("Looks like something went wrong. Please file a bug report at https://github.com/zphixon/snipsnap\n\n{:#?}", response);
+                            let error = format!(bug_report!(), response);
                             request.respond(Response::from_string(error)).unwrap();
                             return Err(MyError::TokenRequestError);
                         }
@@ -308,7 +324,7 @@ fn authorize() -> Result<Auth, MyError> {
 
                     Err(error) => {
                         // the json was bad, this is probably spotify's fault
-                        let error = format!("Looks like something went wrong. Please file a bug report at https://github.com/zphixon/snipsnap\n\n{:#?}", error);
+                        let error = format!(bug_report!(), error);
                         request.respond(Response::from_string(error)).unwrap();
                         return Err(MyError::InvalidResponseJson);
                     }
