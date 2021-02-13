@@ -1,0 +1,18 @@
+[package]
+name = "snipsnap"
+version = "0.1.0"
+authors = [""]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tiny_http = "0.7"
+url = "2.2.0"
+ureq = { version = "1.5.4", features = ["json"] }
+base64 = "0.13.0"
+chrono = "0.4.19"
+webbrowser = "*"
+rand = "0.8.3"
+sha2 = "0.9.3"
+msgbox = "0.6.0"
