@@ -1089,7 +1089,6 @@ name = "snipsnap"
 version = "0.1.0"
 dependencies = [
  "base64",
- "chrono",
  "msgbox",
  "rand",
  "sha2",
