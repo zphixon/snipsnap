@@ -18,72 +18,63 @@ fn main() {
     // * format
 
     let file = "track.txt";
-    let format = "";
 
-    let mut auth = None;
+    // send user to the browser
+    std::thread::spawn(|| {
+        std::thread::sleep(std::time::Duration::from_millis(250));
+        match webbrowser::open("http://localhost:44554/snipsnap") {
+            Ok(_) => {}
+            Err(e) => crate::error::error_msg(e.into()),
+        };
+    });
 
-    'main: loop {
-        if auth.is_none() {
-            match auth::authorize() {
-                Ok(new_auth) => auth = Some(new_auth),
-                _ => break 'main, // errors from authorize() show up in the browser
-            }
-        }
-
-        match get_currently_playing(&auth.as_ref().unwrap().access_token, file, format) {
-            Some(MyError::Unauthorized) => {
-                // if we're unauthorized try refreshing the access token
-                match auth::refresh(&auth.unwrap().refresh_token) {
-                    Ok(new_auth) => auth = Some(new_auth),
-
-                    Err(refresh_err) => {
-                        // if that didn't work open the browser and try again
-                        match auth::authorize() {
-                            Ok(new_auth) => auth = Some(new_auth),
-
-                            // give up if it doesn't work
-                            Err(auth_err) => {
-                                ui::error(
-                                    "Please check your network connection or Spotify account.",
-                                    refresh_err,
-                                    Some(auth_err),
-                                );
-
-                                break 'main;
-                            }
-                        }
+    let _: Result<(), ()> = auth::authorize()
+        .map(|mut auth| loop {
+            let _: Result<(), ()> = get_currently_playing(&auth.access_token)
+                .map(|track| {
+                    std::fs::write(file, track)
+                        .map_err(|e| {
+                            error::error_msg(e.into());
+                            std::process::exit(1);
+                        })
+                        .unwrap();
+                })
+                .map_err(|e| match e {
+                    MyError::Unauthorized => {
+                        auth = auth::refresh(&auth.refresh_token)
+                            .map_err(|e| {
+                                error::error_msg(e);
+                                std::process::exit(1);
+                            })
+                            .unwrap();
                     }
-                }
-            }
-
-            Some(MyError::FsError) => {
-                ui::error("Filesystem encountered an error.", MyError::FsError, None);
-            }
-
-            // get_currently_playing does not return any other error type
-            Some(_) => unreachable!(),
-
-            None => {}
-        }
-
-        std::thread::sleep(std::time::Duration::from_secs(10));
-    }
+                    e => {
+                        error::error_msg(e);
+                        std::process::exit(1);
+                    }
+                });
+            std::thread::sleep(std::time::Duration::from_secs(10));
+        })
+        .map_err(|e| {
+            error::error_msg(e);
+            std::process::exit(1);
+        });
 }
 
-fn get_currently_playing(access_token: &str, path: &str, _format: &str) -> Option<MyError> {
+fn get_currently_playing(access_token: &str) -> Result<String, MyError> {
     let response = ureq::get("https://api.spotify.com/v1/me/player/currently-playing")
         .set("Authorization", &format!("Bearer {}", access_token))
         .send_string("");
 
     if response.status() == 204 {
         // 204: No Content (not currently playing anything)
-        return std::fs::write(path, "").map_err(|_| MyError::FsError).err();
+        return Ok(String::new());
     } else if response.status() == 401 {
         // 401: Unauthorized (need to refresh or authorize)
-        return Some(MyError::Unauthorized);
+        return Err(MyError::Unauthorized);
     }
 
-    let json = response.into_json().unwrap();
+    let json = response.into_json()?;
 
     // collect artists
     let mut artist = String::new();
@@ -101,11 +92,9 @@ fn get_currently_playing(access_token: &str, path: &str, _format: &str) -> Optio
 
     let track = format!("{} - {}", json["item"]["name"].as_str().unwrap(), artist);
 
-    if unsafe { &CURRENT_TRACK } == &track {
-        None
+    return if unsafe { &CURRENT_TRACK } == &track {
+        Ok(String::new())
     } else {
-        std::fs::write(path, track)
-            .map_err(|_| MyError::FsError)
-            .err()
-    }
+        Ok(track)
+    };
 }

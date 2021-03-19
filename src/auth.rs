@@ -5,11 +5,7 @@ use url::Url;
 
 use std::str::FromStr;
 
-use crate::{
-    bug_report,
-    error::MyError,
-    resource::{CLIENT_ID, LOCAL_CALLBACK_URL, SPOTIFY_AUTH_URL, SPOTIFY_TOKEN_URL},
-};
+use crate::{error::MyError, resource::*};
 
 pub struct Auth {
     pub access_token: String,
@@ -43,7 +39,7 @@ pub fn refresh(refresh_token: &str) -> Result<Auth, MyError> {
             }
         }
 
-        _ => Err(MyError::InvalidResponseJson),
+        Err(e) => Err(MyError::InvalidResponseJson(e.to_string())),
     }
 }
 
@@ -91,26 +87,20 @@ pub fn authorize() -> Result<Auth, MyError> {
     .unwrap();
 
     // start up server
-    let server = Server::http("0.0.0.0:44554").expect("server!");
-
-    // send user to the browser
-    std::thread::spawn(|| {
-        std::thread::sleep(std::time::Duration::from_millis(250));
-        webbrowser::open("http://localhost:44554/snipsnap").unwrap();
-    });
+    let server = Server::http("0.0.0.0:44554")?;
 
     for request in server.incoming_requests() {
         match request.method() {
             // browser page loads
             Method::Get if request.url() == "/snipsnap" => {
                 // immediately redirect user to spotify authorization page
-                let response = Response::from_string("redirecting...")
+                let response = Response::from_string(REDIRECTING)
                     .with_status_code(303)
                     .with_header(
                         Header::from_str(&format!("Location: {}", auth_uri.as_str())).unwrap(),
                     );
 
-                request.respond(response).unwrap();
+                request.respond(response)?;
             }
 
             // second stage of initial app authorization, after user allows/denies access
@@ -126,11 +116,7 @@ pub fn authorize() -> Result<Auth, MyError> {
                 if let Some((_, response_state)) = queries.iter().find(|(name, _)| name == "state")
                 {
                     if response_state != &state {
-                        request
-                            .respond(Response::from_string(
-                                "Cross-site request forgery detected. Exiting auth flow. Your network may be compromised or incorrectly configured.",
-                            ))
-                            .unwrap();
+                        request.respond(Response::from_string(""))?;
                         return Err(MyError::CrossSiteRequestForgery);
                     }
                 }
@@ -138,14 +124,11 @@ pub fn authorize() -> Result<Auth, MyError> {
                 // user denies access or some other error occurs
                 if let Some((_, error)) = queries.iter().find(|(name, _)| name == "error") {
                     if error == "access_denied" {
-                        request
-                            .respond(Response::from_string("User denied access."))
-                            .unwrap();
+                        request.respond(Response::from_string(""))?;
                         return Err(MyError::AccessDenied);
                     } else {
-                        let error = format!(bug_report!(), error);
-                        request.respond(Response::from_string(error)).unwrap();
-                        return Err(MyError::Unknown);
+                        request.respond(Response::from_string(error.to_string()))?;
+                        return Err(MyError::Unknown(error.to_string()));
                     }
                 }
 
@@ -174,11 +157,7 @@ pub fn authorize() -> Result<Auth, MyError> {
                     Ok(response) => {
                         if response["error"].is_null() {
                             // woohoo
-                            request
-                                .respond(Response::from_string(
-                                    "SnipSnap is set up! You can now close this window.",
-                                ))
-                                .unwrap();
+                            request.respond(Response::from_string(SET_UP))?;
 
                             return Ok(Auth {
                                 access_token: response["access_token"].as_str().unwrap().to_owned(),
@@ -189,26 +168,20 @@ pub fn authorize() -> Result<Auth, MyError> {
                             });
                         } else {
                             // something in the request went wrong
-                            let error = format!(bug_report!(), response);
-                            request.respond(Response::from_string(error)).unwrap();
-                            return Err(MyError::TokenRequestError);
+                            request.respond(Response::from_string(response.to_string()))?;
+                            return Err(MyError::TokenRequestError(response.to_string()));
                         }
                     }
 
                     Err(error) => {
                         // the json was bad, this is probably spotify's fault
-                        let error = format!(bug_report!(), error);
-                        request.respond(Response::from_string(error)).unwrap();
-                        return Err(MyError::InvalidResponseJson);
+                        request.respond(Response::from_string(error.to_string()))?;
+                        return Err(MyError::InvalidResponseJson(error.to_string()));
                     }
                 }
             }
 
-            _ => request
-                .respond(Response::from_string(
-                    "Hi, glad you're enjoying SnipSnap enough to poke around ♥",
-                ))
-                .unwrap(),
+            _ => request.respond(Response::from_string(SNEAKY_WINK))?,
         }
     }
 
