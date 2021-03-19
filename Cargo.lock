@@ -57,6 +57,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
+name = "bindings"
+version = "0.1.0"
+dependencies = [
+ "windows",
+]
+
+[[package]]
 name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -170,6 +177,12 @@ dependencies = [
  "libc",
  "objc",
 ]
+
+[[package]]
+name = "const-sha1"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb58b6451e8c2a812ad979ed1d83378caa5e927eef2622017a45f251457c2c9d"
 
 [[package]]
 name = "const_fn"
@@ -1089,6 +1102,7 @@ name = "snipsnap"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "bindings",
  "msgbox",
  "rand",
  "sha2",
@@ -1096,6 +1110,7 @@ dependencies = [
  "ureq",
  "url",
  "webbrowser",
+ "windows",
 ]
 
 [[package]]
@@ -1103,6 +1118,12 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
+
+[[package]]
+name = "squote"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fccf17fd09e2455ea796d2ad267b64fa2c5cbd8701b2a93b555d2aa73449f7d"
 
 [[package]]
 name = "standback"
@@ -1526,3 +1547,51 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
+
+[[package]]
+name = "windows"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91294bf1e3791f04e442c6d57ea2c118e21ca5b0953f9465fdc8c33046f5b5c9"
+dependencies = [
+ "const-sha1",
+ "windows_gen",
+ "windows_macros",
+]
+
+[[package]]
+name = "windows_gen"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "334e75d3c85c56ebb36e44efabd8f0da3c0b379ad2af9691aca5a1ad1ff202e8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "squote",
+ "syn",
+ "windows_gen_macros",
+]
+
+[[package]]
+name = "windows_gen_macros"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a97c77daa4275ca227bd89ea62adaa430f1e7281c1d35419bafe9e5f9ca69052"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "windows_macros"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8411774b50e671ab93d4579f74d966059a32fc749295659b0946e09ae3869726"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "squote",
+ "syn",
+ "windows_gen",
+]
